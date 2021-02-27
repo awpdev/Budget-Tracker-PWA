@@ -25,26 +25,49 @@ self.addEventListener('install', (event) => {
 
 // The activate handler takes care of cleaning up old caches.
 self.addEventListener('activate', (event) => {
-  /*
-  const currentCaches = [PRECACHE, RUNTIME];
+  
   event.waitUntil(
     caches
       .keys()
-      .then((cacheNames) => {
-        return cacheNames.filter((cacheName) => !currentCaches.includes(cacheName));
-      })
-      .then((cachesToDelete) => {
+      .then((keyList) => {
         return Promise.all(
-          cachesToDelete.map((cacheToDelete) => {
-            return caches.delete(cacheToDelete);
+          keyList.map((key) => {
+            if (key !== CACHE_NAME && key !== DATA_CACHE_NAME) {
+              console.log('Removing old cache data', key);
+              return caches.delete(key);
+            }
           })
         );
       })
       .then(() => self.clients.claim())
-  ); */
+  ); 
 });
 
-self.addEventListener('fetch', (event) => { /*
+self.addEventListener('fetch', (event) => {
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      caches
+        .open(DATA_CACHE_NAME)
+        .then(cache => {
+          return fetch(event.request)
+          .then(response => {
+            if (response.status === 200) {
+              cache.put(event.request.url, response.clone());
+            }
+            return cache.match(event.request);
+          });
+      })
+      .catch(err => console.log(err)) 
+    );
+    return;
+  } 
+  
+  event.respondWith(
+    caches.match(event.request).then(function (response) {
+      return response || fetch(event.request);
+    })
+    
+  );  /*
   if (event.request.url.startsWith(self.location.origin)) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
